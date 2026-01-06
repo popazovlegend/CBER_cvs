@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Upload, Sparkles, FileText, Mic, Presentation, Loader2 } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { DialogLine, Slide } from "@/types";
+import { DialogLine, Slide, Source } from "@/types";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const [sourceText, setSourceText] = useState("");
+  const [sources, setSources] = useState<Source[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<"audio" | "slides" | "summary">("summary");
@@ -30,27 +31,59 @@ export default function Home() {
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
-      if (data.text) {
-        setSourceText(prev => prev + "\n" + data.text);
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || res.statusText);
       }
-    } catch (error) {
+
+      const data = await res.json();
+
+      if (data.text) {
+        const newSource: Source = {
+          id: Math.random().toString(36).substring(7),
+          name: file.name,
+          type: file.type.startsWith('image') ? 'image' : file.type === 'application/pdf' ? 'pdf' : 'text',
+          content: data.text,
+          date: new Date()
+        };
+        setSources(prev => [...prev, newSource]);
+      }
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to process file");
+      alert(error.message || "Failed to process file");
     } finally {
       setIsProcessing(false);
+      // Reset input
+      e.target.value = "";
     }
   };
 
+  const removeSource = (id: string) => {
+    setSources(prev => prev.filter(s => s.id !== id));
+  };
+
+  const getCombinedContext = () => {
+    const sourceContent = sources.map(s => `[Source: ${s.name}]\n${s.content}`).join("\n\n");
+    return `${sourceText}\n\n${sourceContent}`.trim();
+  };
+
   const generate = async (type: "audio_script" | "presentation" | "summary") => {
-    if (!sourceText) return;
+    const context = getCombinedContext();
+    if (!context) return;
+
     setIsGenerating(true);
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, context: sourceText }),
+        body: JSON.stringify({ type, context }),
       });
+
+      if (!res.ok) {
+        throw new Error(res.statusText);
+      }
+
       const data = await res.json();
 
       if (type === "audio_script") {
@@ -65,7 +98,7 @@ export default function Home() {
       }
     } catch (e) {
       console.error(e);
-      alert("Generation failed");
+      alert("Generation failed. Please try again or check console for details.");
     } finally {
       setIsGenerating(false);
     }
@@ -86,30 +119,55 @@ export default function Home() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-140px)]">
         {/* Left Column: Source */}
         <div className="flex flex-col gap-4 h-full">
-          <div className="bg-card border rounded-xl p-6 flex-1 flex flex-col shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-card border rounded-xl p-6 flex-1 flex flex-col shadow-sm gap-4 overflow-hidden">
+
+            <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> Sources
               </h2>
-              <label className="cursor-pointer bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md transition flex items-center gap-2 text-sm font-medium">
+              <label className={`cursor-pointer bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md transition flex items-center gap-2 text-sm font-medium ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
                 <Upload className="w-4 h-4" />
                 {isProcessing ? "Scanning..." : "Add Source"}
                 <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,image/*,.txt" disabled={isProcessing} />
               </label>
             </div>
 
-            <textarea
-              className="flex-1 w-full bg-secondary/30 rounded-lg p-4 resize-none border focus:ring-2 ring-primary/50 outline-none transition font-mono text-sm leading-relaxed"
-              placeholder="Paste text here or upload a file (PDF, Image, Text)..."
-              value={sourceText}
-              onChange={(e) => setSourceText(e.target.value)}
-            />
+            {/* Resources List */}
+            {sources.length > 0 && (
+              <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-1">
+                {sources.map(source => (
+                  <div key={source.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg border text-sm group">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {source.type === 'image' ? <Sparkles className="w-4 h-4 text-purple-500" /> :
+                        source.type === 'pdf' ? <FileText className="w-4 h-4 text-red-500" /> :
+                          <FileText className="w-4 h-4 text-blue-500" />}
+                      <span className="truncate font-medium">{source.name}</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{(source.content.length / 1000).toFixed(1)}k chars</span>
+                    </div>
+                    <button onClick={() => removeSource(source.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 hover:text-red-500 rounded transition">
+                      <span className="sr-only">Remove</span>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex-1 flex flex-col gap-2 min-h-0">
+              <label className="text-sm font-medium text-muted-foreground">Manual Input / Scratchpad</label>
+              <textarea
+                className="flex-1 w-full bg-secondary/30 rounded-lg p-4 resize-none border focus:ring-2 ring-primary/50 outline-none transition font-mono text-sm leading-relaxed"
+                placeholder="Paste extra text or notes here..."
+                value={sourceText}
+                onChange={(e) => setSourceText(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <button
               onClick={() => generate("summary")}
-              disabled={isGenerating || !sourceText}
+              disabled={isGenerating || (!sourceText && sources.length === 0)}
               className="flex flex-col items-center justify-center p-4 bg-card border rounded-xl hover:border-primary transition group disabled:opacity-50"
             >
               <FileText className="w-6 h-6 mb-2 text-muted-foreground group-hover:text-primary transition" />
@@ -117,7 +175,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => generate("audio_script")}
-              disabled={isGenerating || !sourceText}
+              disabled={isGenerating || (!sourceText && sources.length === 0)}
               className="flex flex-col items-center justify-center p-4 bg-card border rounded-xl hover:border-primary transition group disabled:opacity-50"
             >
               <Mic className="w-6 h-6 mb-2 text-muted-foreground group-hover:text-primary transition" />
@@ -125,7 +183,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => generate("presentation")}
-              disabled={isGenerating || !sourceText}
+              disabled={isGenerating || (!sourceText && sources.length === 0)}
               className="flex flex-col items-center justify-center p-4 bg-card border rounded-xl hover:border-primary transition group disabled:opacity-50"
             >
               <Presentation className="w-6 h-6 mb-2 text-muted-foreground group-hover:text-primary transition" />
@@ -149,8 +207,8 @@ export default function Home() {
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap ${activeTab === tab
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary"
                   }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}

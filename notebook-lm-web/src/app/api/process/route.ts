@@ -48,8 +48,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ text });
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Processing error:", error);
-        return NextResponse.json({ error: "Failed to process file" }, { status: 500 });
+        const errorMessage = error.message || "Failed to process file";
+        const status = error.status || 500;
+        return NextResponse.json({ error: errorMessage }, { status });
     }
 }
