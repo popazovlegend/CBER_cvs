@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
-import { OpenAI } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 // @ts-ignore
 const pdf = require("pdf-parse");
 
 export async function POST(req: Request) {
-    const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: process.env.OPENROUTER_API_KEY || "dummy", // Fallback for build
-    });
     try {
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.OPENROUTER_API_KEY || "";
+        if (!apiKey) {
+            return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -19,39 +24,48 @@ export async function POST(req: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
 
         if (file.type === "application/pdf") {
-            const data = await pdf(buffer);
-            return NextResponse.json({ text: data.text });
+            try {
+                const data = await pdf(buffer);
+                return NextResponse.json({ text: data.text });
+            } catch (e) {
+                console.error("PDF Error", e);
+                return NextResponse.json({ error: "PDF Parse Failed" }, { status: 500 });
+            }
         } else if (file.type.startsWith("image/")) {
-            // Use Gemini Vision to extract text
+            // Use Gemini Vision via Google SDK
             const base64Image = buffer.toString("base64");
-            const completion = await openai.chat.completions.create({
-                model: "google/gemini-2.0-flash-exp:free",
-                messages: [
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: "Transcribe all text from this image. If it's a diagram or scene, describe it in detail." },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: `data:${file.type};base64,${base64Image}`
-                                }
-                            },
-                        ],
-                    },
-                ],
-            });
-            return NextResponse.json({ text: completion.choices[0].message.content });
+
+            const prompt = `
+            Transcribe EVERYTHING in this image into text. 
+            
+            IMPORTANT Instructions:
+            1. If there is handwriting, transcribe it exactly.
+            2. If there are tables or diagrams, describe them in detail.
+            3. The output should be a perfect textual representation of the image for note-taking purposes.
+            4. If the text in the image is in Russian, keep it in Russian. If it's English, keep it English (but translate explanation if needed). 
+            5. PREFER RUSSIAN for descriptions.
+            `;
+
+            const result = await model.generateContent([
+                prompt,
+                {
+                    inlineData: {
+                        data: base64Image,
+                        mimeType: file.type
+                    }
+                }
+            ]);
+
+            return NextResponse.json({ text: result.response.text() });
+
         } else {
             // Fallback for text files
             const text = buffer.toString("utf-8");
             return NextResponse.json({ text });
         }
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Processing error:", error);
-        const errorMessage = error.message || "Failed to process file";
-        const status = error.status || 500;
-        return NextResponse.json({ error: errorMessage }, { status });
+        return NextResponse.json({ error: "Failed to process file" }, { status: 500 });
     }
 }

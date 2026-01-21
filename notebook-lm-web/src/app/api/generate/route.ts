@@ -1,71 +1,112 @@
-import { OpenAI } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-import { DialogLine, Slide } from "@/types";
 
 export async function POST(req: Request) {
-    const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: process.env.OPENROUTER_API_KEY || "dummy",
-    });
     try {
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.OPENROUTER_API_KEY || "";
+        if (!apiKey) {
+            return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        // Switched to Gemini 2.5 Pro model
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
         const { type, context } = await req.json();
 
         if (!context) {
             return NextResponse.json({ error: "Context is required" }, { status: 400 });
         }
 
-        let systemPrompt = "";
-        let userPrompt = "";
+        let prompt = "";
+        let jsonFormat = false;
 
         if (type === "audio_script") {
-            systemPrompt = `You are an expert podcast producer. Create a dialogue script between two hosts (Host 1 and Host 2) discussing the provided content. 
-      The dialogue should be engaging, conversational, and easy to listen to. 
-      Output ONLY valid JSON in the following format:
-      [
-        { "speaker": "Host 1", "text": "..." },
-        { "speaker": "Host 2", "text": "..." }
-      ]`;
-            userPrompt = `Generate a podcast script based on this text:\n\n${context}`;
+            jsonFormat = true;
+            prompt = `
+            You are an expert educational podcast producer. Create a detailed dialogue script in RUSSIAN (Русский язык) between two hosts (Host 1 and Host 2) discussing the provided content.
+            
+            GOAL: Create a comprehensive study guide/notes in the form of a conversation.
+            - Language: RUSSIAN ONLY.
+            - Host 1: Explains the concepts clearly.
+            - Host 2: Asks clarifying questions and summarizes key points.
+            - The script must cover ALL the details from the source text.
+            
+            Output ONLY valid JSON in the following format:
+            [
+                { "speaker": "Host 1", "text": "..." },
+                { "speaker": "Host 2", "text": "..." }
+            ]
+
+            Source Text based on which to write the script:
+            ${context}
+            `;
         } else if (type === "presentation") {
-            systemPrompt = `You are a presentation expert. Create a slide deck summary of the provided content.
-      Output ONLY valid JSON in the following format:
-      [
-        { "title": "Slide Title", "bullets": ["point 1", "point 2"], "notes": "Speaker notes for this slide" }
-      ]`;
-            userPrompt = `Generate a presentation based on this text:\n\n${context}`;
+            jsonFormat = true;
+            prompt = `
+            You are an expert presentation designer. Create a slide deck summary in RUSSIAN (Русский язык) of the provided content.
+            
+            GOAL: Create a structured lecture presentation.
+            - Language: RUSSIAN ONLY.
+            - Create multiple slides to cover the entire content.
+            - Use detailed bullet points.
+            
+            Output ONLY valid JSON in the following format:
+            [
+                { "title": "Slide Title", "bullets": ["point 1", "point 2"], "notes": "Speaker notes for this slide" }
+            ]
+
+            Source Text:
+            ${context}
+            `;
         } else {
-            systemPrompt = "You are a helpful assistant. Summarize the following text.";
-            userPrompt = `Summarize this:\n\n${context}`;
+            // Summary
+            prompt = `
+            You are an expert academic assistant. Create a detailed note/summary (конспект) in RUSSIAN (Русский язык) of the provided text.
+            
+            INSTRUCTIONS:
+            1. Language: RUSSIAN ONLY.
+            2. Structure the notes with clear headers and bullet points.
+            3. Capture ALL details, numbers, and facts from the text.
+            4. Do not miss any information.
+            5. FORMATTING: Use **Bold** for key terms.
+            6. MATH/FORMULAS: Use LaTeX format for ALL formulas and equations. 
+               - Inline math: $ ... $ (e.g., $ E = mc^2 $)
+               - Block math: $$ ... $$
+
+            Text to summarize:
+            ${context}
+            `;
         }
 
-        const completion = await openai.chat.completions.create({
-            model: "google/gemini-2.0-flash-exp:free",
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-            ],
-            response_format: { type: "json_object" },
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: jsonFormat ? "application/json" : "text/plain",
+            }
         });
 
-        const content = completion.choices[0].message.content;
-        let parsedContent;
-        try {
-            parsedContent = JSON.parse(content || "[]");
-            // Handle case where Gemini wraps it in a key
-            if (!Array.isArray(parsedContent) && (parsedContent.script || parsedContent.slides)) {
-                parsedContent = parsedContent.script || parsedContent.slides || parsedContent;
+        const content = result.response.text();
+
+        if (jsonFormat) {
+            let parsedContent;
+            try {
+                parsedContent = JSON.parse(content);
+                // Handle formatting quirks if any
+                if (!Array.isArray(parsedContent) && (parsedContent.script || parsedContent.slides)) {
+                    parsedContent = parsedContent.script || parsedContent.slides || parsedContent;
+                }
+                return NextResponse.json(parsedContent);
+            } catch (e) {
+                console.error("JSON Parse Error", e);
+                return NextResponse.json({ error: "Failed to parse JSON" }, { status: 500 });
             }
-        } catch (e) {
-            console.error("Failed to parse JSON", content);
-            return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
         }
 
-        return NextResponse.json(parsedContent);
+        return NextResponse.json({ summary: content });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Generation error:", error);
-        const errorMessage = error.message || "Internal server error";
-        const status = error.status || 500;
-        return NextResponse.json({ error: errorMessage }, { status });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
