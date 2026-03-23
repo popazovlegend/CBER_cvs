@@ -18,7 +18,7 @@ const SidebarItem = ({ title, active, onClick, date }: { title: string, active: 
       active ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:bg-neutral-800/50 hover:text-neutral-200"
     }`}
   >
-    <span className="truncate pr-2">{title || "Untitled"}</span>
+    <span className="truncate pr-2">{title || "Без названия"}</span>
     {date && <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">{date}</span>}
   </button>
 );
@@ -80,7 +80,7 @@ export default function Home() {
       });
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data.error || "Authentication failed");
+      if (!res.ok) throw new Error(data.error || "Ошибка аутентификации");
       
       setUser({ userId: data.id, username: data.username });
       fetchNotebooks(data.id);
@@ -104,7 +104,7 @@ export default function Home() {
         setNotebooks(await res.json());
       }
     } catch (e) {
-      console.error("Failed to fetch notebooks", e);
+      console.error("Ошибка загрузки конспектов", e);
     }
   };
 
@@ -124,7 +124,7 @@ export default function Home() {
     setSlides([]);
     setSummary("");
     setActiveOutputTab("editor");
-    fetchNotebooks(user?.userId, false); // ensure we're viewing personal notebooks
+    fetchNotebooks(user?.userId, false); 
   };
 
   const loadNotebook = async (n: Notebook) => {
@@ -157,7 +157,7 @@ export default function Home() {
         if (res.ok) fetchNotebooks(user.userId, false);
       } else {
         const payload = {
-          title: updates.title || noteTitle || "Untitled Project",
+          title: updates.title || noteTitle || "Новый конспект",
           sourceText: updates.sourceText || sourceText,
           sources: updates.sources || JSON.stringify(sources),
           ...updates
@@ -174,12 +174,12 @@ export default function Home() {
         }
       }
     } catch(e) {
-      console.error("Failed to save to DB", e);
+      console.error("Ошибка сохранения в базу данных", e);
     }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => setNoteTitle(e.target.value);
-  const handleTitleBlur = () => { if (noteTitle.trim() && noteTitle !== "Untitled Project") saveToDb({ title: noteTitle }); };
+  const handleTitleBlur = () => { if (noteTitle.trim() && noteTitle !== "Новый конспект") saveToDb({ title: noteTitle }); };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -212,7 +212,7 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error(error);
-      alert("Error processing file");
+      alert("Ошибка обработки файла");
     } finally {
       setIsProcessing(false);
       e.target.value = "";
@@ -246,7 +246,7 @@ export default function Home() {
       const data = await res.json();
 
       if (!activeNotebookId) {
-        await saveToDb({ title: noteTitle || "Untitled Project", sourceText, sources: JSON.stringify(sources) });
+        await saveToDb({ title: noteTitle || "Новый конспект", sourceText, sources: JSON.stringify(sources) });
       }
 
       if (type === "audio_script") {
@@ -265,7 +265,7 @@ export default function Home() {
       }
     } catch (e) {
       console.error(e);
-      alert("Generation failed.");
+      alert("Ошибка генерации");
     } finally {
       setIsGenerating(false);
     }
@@ -285,27 +285,27 @@ export default function Home() {
       <div className="flex h-screen w-full items-center justify-center bg-[#171717] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] font-sans antialiased text-neutral-200">
         <div className="w-full max-w-sm p-8 border border-neutral-800 bg-[#212121]/90 backdrop-blur-xl rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">CortexNote</h1>
-            <p className="text-sm text-neutral-400">Sign in to your intelligent workspace.</p>
+            <h1 className="text-2xl font-semibold text-white mb-2">Цифровые Конспекты</h1>
+            <p className="text-sm text-neutral-400">Войдите в ваше интеллектуальное пространство.</p>
           </div>
 
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             {authError && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm text-center">{authError}</div>}
             
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1.5 ml-1">Username</label>
+              <label className="block text-xs font-medium text-neutral-400 mb-1.5 ml-1">Имя пользователя</label>
               <input 
                 type="text" 
                 value={authForm.username}
                 onChange={e => setAuthForm({...authForm, username: e.target.value})}
                 required
                 className="w-full px-4 py-2.5 bg-[#171717] border border-neutral-800 focus:border-neutral-500 rounded-xl outline-none transition-colors"
-                placeholder="you@domain.com"
+                placeholder="Имя пользователя..."
               />
             </div>
             
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1.5 ml-1">Password</label>
+              <label className="block text-xs font-medium text-neutral-400 mb-1.5 ml-1">Пароль</label>
               <input 
                 type="password" 
                 value={authForm.password}
@@ -317,14 +317,14 @@ export default function Home() {
             </div>
 
             <button type="submit" className="w-full py-2.5 bg-white text-black font-semibold rounded-xl hover:bg-neutral-200 transition-colors mt-2">
-              {authMode === "login" ? "Sign In" : "Create Account"}
+              {authMode === "login" ? "Войти" : "Создать аккаунт"}
             </button>
           </form>
 
           <p className="text-center text-xs text-neutral-500 mt-6">
-            {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+            {authMode === "login" ? "Нет аккаунта? " : "Уже есть аккаунт? "}
             <button onClick={() => setAuthMode(authMode === "login" ? "register" : "login")} className="text-neutral-300 hover:text-white hover:underline transition">
-              {authMode === "login" ? "Sign up" : "Sign in"}
+              {authMode === "login" ? "Зарегистрироваться" : "Войти"}
             </button>
           </p>
         </div>
@@ -341,28 +341,28 @@ export default function Home() {
         <div className="p-3 flex flex-col gap-1 border-b border-[#2f2f2f]">
           <div className="flex gap-2 items-center justify-between">
             <button onClick={handleNew} className="flex-1 flex items-center justify-between px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm transition-colors cursor-pointer">
-              <span className="flex items-center gap-2"><Plus className="w-4 h-4" /> New chat</span>
+              <span className="flex items-center gap-2"><Plus className="w-4 h-4" /> Новый конспект</span>
             </button>
             <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 cursor-pointer">
               <PanelLeftClose className="w-4 h-4" />
             </button>
           </div>
           <button onClick={toggleExploreMode} className={`w-full mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${isExploreMode ? "bg-neutral-200 text-black" : "text-neutral-300 hover:bg-neutral-800"}`}>
-            <Globe className="w-4 h-4" /> Explore Community
+            <Globe className="w-4 h-4" /> База конспектов сообщества
           </button>
         </div>
 
         <div className="px-3 py-3">
           <div className="relative group">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
-            <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent border border-neutral-800 focus:border-neutral-600 rounded-md py-1.5 pl-8 pr-3 text-sm text-neutral-200 outline-none transition-colors placeholder:text-neutral-600" />
+            <input type="text" placeholder="Поиск конспектов..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent border border-neutral-800 focus:border-neutral-600 rounded-md py-1.5 pl-8 pr-3 text-sm text-neutral-200 outline-none transition-colors placeholder:text-neutral-600" />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1">
-          <div className="text-xs font-medium text-neutral-500 mb-2 px-1">{isExploreMode ? "Community Matches" : "Your Projects"}</div>
+          <div className="text-xs font-medium text-neutral-500 mb-2 px-1">{isExploreMode ? "Поиск по сообществу" : "Ваши цифровые конспекты"}</div>
           {filteredNotebooks.length === 0 ? (
-            <div className="text-xs text-neutral-600 px-1 py-2">No notebooks found</div>
+            <div className="text-xs text-neutral-600 px-1 py-2">Конспектов не найдено</div>
           ) : (
             filteredNotebooks.map(n => (
               <SidebarItem key={n.id} title={n.title} active={activeNotebookId === n.id} onClick={() => loadNotebook(n)} />
@@ -376,7 +376,7 @@ export default function Home() {
              <div className="w-7 h-7 bg-neutral-800 rounded-full flex items-center justify-center shrink-0"><UserIcon className="w-4 h-4"/></div>
              <span className="truncate">{user.username}</span>
           </div>
-          <button onClick={logout} className="p-1.5 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-md transition cursor-pointer" title="Log out">
+          <button onClick={logout} className="p-1.5 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-md transition cursor-pointer" title="Выйти">
              <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -395,16 +395,16 @@ export default function Home() {
             )}
             
             {!isExploreMode && (
-              <input value={noteTitle} onChange={handleTitleChange} onBlur={handleTitleBlur} placeholder="Untitled Project" className="bg-transparent text-lg font-medium text-neutral-200 outline-none focus:ring-1 ring-neutral-700 rounded px-2 py-0.5 placeholder:text-neutral-600 w-full max-w-sm" />
+              <input value={noteTitle} onChange={handleTitleChange} onBlur={handleTitleBlur} placeholder="Новый конспект" className="bg-transparent text-lg font-medium text-neutral-200 outline-none focus:ring-1 ring-neutral-700 rounded px-2 py-0.5 placeholder:text-neutral-600 w-full max-w-sm" />
             )}
             {isExploreMode && (
-              <h2 className="text-lg font-medium text-neutral-200 px-2">Community Notebooks</h2>
+              <h2 className="text-lg font-medium text-neutral-200 px-2">Цифровые конспекты сообщества</h2>
             )}
           </div>
 
           {!isExploreMode && (
             <div className="flex items-center gap-2">
-               {!isGenerating && sources.length > 0 && <span className="text-xs text-neutral-500 flex items-center gap-1"><FileCheck2 className="w-3.5 h-3.5" /> {sources.length} sources</span>}
+               {!isGenerating && sources.length > 0 && <span className="text-xs text-neutral-500 flex items-center gap-1"><FileCheck2 className="w-3.5 h-3.5" /> источников: {sources.length}</span>}
             </div>
           )}
         </header>
@@ -415,23 +415,23 @@ export default function Home() {
           {isExploreMode ? (
             <div className="max-w-5xl mx-auto px-6 py-8 animate-in fade-in duration-500">
                <div className="mb-8">
-                 <h1 className="text-3xl font-semibold mb-2 text-white">Explore</h1>
-                 <p className="text-neutral-400 text-sm flex items-center gap-2"><Globe className="w-4 h-4"/> Discover and learn from projects created by the community.</p>
+                 <h1 className="text-3xl font-semibold mb-2 text-white">База конспектов</h1>
+                 <p className="text-neutral-400 text-sm flex items-center gap-2"><Globe className="w-4 h-4"/> Изучайте цифровые конспекты, созданные другими участниками.</p>
                </div>
                
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                  {notebooks.map(n => (
                    <div key={n.id} onClick={() => loadNotebook(n)} className="p-5 rounded-2xl border border-neutral-800 bg-[#1e1e1e] hover:bg-neutral-800 cursor-pointer shadow-sm hover:shadow-md transition-all group flex flex-col">
                      <div className="flex items-start justify-between mb-3">
-                       <span className="text-xs px-2 py-1 bg-white/5 text-neutral-300 rounded-md border border-white/5">{n.subject || "General"}</span>
+                       <span className="text-xs px-2 py-1 bg-white/5 text-neutral-300 rounded-md border border-white/5">{n.subject || "Общее"}</span>
                      </div>
-                     <h3 className="font-semibold text-[17px] mb-2 text-neutral-200 group-hover:text-white transition-colors">{n.title || "Untitled Project"}</h3>
+                     <h3 className="font-semibold text-[17px] mb-2 text-neutral-200 group-hover:text-white transition-colors">{n.title || "Без названия"}</h3>
                      <p className="text-sm text-neutral-500 line-clamp-2 mt-auto">
-                       {n.summary ? n.summary.replace(/[^a-zA-Zа-яА-ЯёЁ0-9 ]/g, "").substring(0, 100) + "..." : "No summary generated yet."}
+                       {n.summary ? n.summary.replace(/[^a-zA-Zа-яА-ЯёЁ0-9 ]/g, "").substring(0, 100) + "..." : "Конспект еще не сгенерирован."}
                      </p>
                      
                      <div className="flex items-center justify-between text-[11px] text-neutral-500 mt-5 pt-3 border-t border-neutral-800/50">
-                        <span className={user.username === n.author ? "text-blue-400" : ""}>{user.username === n.author ? "You" : `By ${n.author || "Anonymous"}`}</span>
+                        <span className={user.username === n.author ? "text-blue-400" : ""}>{user.username === n.author ? "Вы" : `От ${n.author || "Аноним"}`}</span>
                         <span>{new Date(n.created_at).toLocaleDateString()}</span>
                      </div>
                    </div>
@@ -456,7 +456,7 @@ export default function Home() {
                       
                       <label className="flex items-center gap-2 bg-transparent border border-dashed border-neutral-700 hover:border-neutral-500 hover:text-neutral-300 rounded-full px-3 py-1 text-sm text-neutral-400 cursor-pointer transition-colors">
                         <Plus className="w-3.5 h-3.5" />
-                        {isProcessing ? "Extracting..." : "Add Source"}
+                        {isProcessing ? "Извлечение..." : "Загрузить файл"}
                         <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,image/*,.txt" disabled={isProcessing} />
                       </label>
                     </div>
@@ -465,7 +465,7 @@ export default function Home() {
                       value={sourceText}
                       onChange={(e) => setSourceText(e.target.value)}
                       onBlur={() => saveToDb({ sourceText })}
-                      placeholder="Type notes, paste text, or ask a question directly..."
+                      placeholder="Добавьте свои заметки, вставьте текст или задайте вопрос..."
                       className="w-full min-h-[50vh] bg-transparent text-neutral-200 placeholder:text-neutral-600 text-lg resize-none outline-none leading-relaxed"
                     />
                   </div>
@@ -483,7 +483,7 @@ export default function Home() {
                            }}
                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white bg-neutral-800/80 backdrop-blur hover:bg-neutral-700 rounded-lg transition border border-neutral-700"
                          >
-                           {isEditingSummary ? <><Check className="w-3.5 h-3.5"/> Save Edit</> : <><Edit2 className="w-3.5 h-3.5"/> Edit</>}
+                           {isEditingSummary ? <><Check className="w-3.5 h-3.5"/> Сохранить</> : <><Edit2 className="w-3.5 h-3.5"/> Изменить</>}
                          </button>
                        </div>
                        
@@ -502,12 +502,12 @@ export default function Home() {
                   )}
                   {activeOutputTab === "audio" && (
                    <div className="max-w-xl mx-auto mt-10">
-                     {script.length > 0 ? <AudioPlayer script={script} /> : <div className="text-neutral-500 text-center">No audio generated.</div>}
+                     {script.length > 0 ? <AudioPlayer script={script} /> : <div className="text-neutral-500 text-center">Аудио не сгенерировано.</div>}
                    </div>
                   )}
                   {activeOutputTab === "slides" && (
                     <div className="mt-4">
-                      {slides.length > 0 ? <PresentationViewer slides={slides} /> : <div className="text-neutral-500 text-center">No slides generated.</div>}
+                      {slides.length > 0 ? <PresentationViewer slides={slides} /> : <div className="text-neutral-500 text-center">Слайды не сгенерированы.</div>}
                     </div>
                   )}
                 </div>
@@ -523,8 +523,8 @@ export default function Home() {
               
               {/* Tab Switches */}
               <div className="flex gap-1 bg-neutral-900/50 p-1 rounded-xl">
-                <button onClick={() => setActiveOutputTab("editor")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeOutputTab === "editor" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}>Draft</button>
-                {(summary || isGenerating) && <button onClick={() => setActiveOutputTab("summary")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${activeOutputTab === "summary" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}><Bot className="w-4 h-4"/> Output</button>}
+                <button onClick={() => setActiveOutputTab("editor")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeOutputTab === "editor" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}>Черновик</button>
+                {(summary || isGenerating) && <button onClick={() => setActiveOutputTab("summary")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${activeOutputTab === "summary" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}><Bot className="w-4 h-4"/> Конспект</button>}
                 {script.length > 0 && <button onClick={() => setActiveOutputTab("audio")} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${activeOutputTab === "audio" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}><Mic className="w-4 h-4"/></button>}
                 {slides.length > 0 && <button onClick={() => setActiveOutputTab("slides")} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${activeOutputTab === "slides" ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"}`}><Presentation className="w-4 h-4"/></button>}
               </div>
@@ -536,7 +536,7 @@ export default function Home() {
                   disabled={isGenerating || (!sourceText && sources.length === 0)}
                   className="bg-white text-black hover:bg-neutral-200 disabled:opacity-50 disabled:bg-neutral-500 px-4 py-1.5 rounded-xl text-sm font-semibold transition cursor-pointer"
                 >
-                  {isGenerating ? "Reasoning..." : "Analyze"}
+                  {isGenerating ? "Анализирую..." : "Сгенерировать конспект"}
                 </button>
                 
                 <div className="hidden sm:flex gap-1 border-l border-neutral-700 pl-2 ml-1">
@@ -544,7 +544,7 @@ export default function Home() {
                     onClick={() => generate("audio_script")}
                     disabled={isGenerating || (!sourceText && sources.length === 0)}
                     className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded-lg transition disabled:opacity-50 cursor-pointer"
-                    title="Generate Audio"
+                    title="Создать подкаст"
                   >
                     <Mic className="w-4 h-4" />
                   </button>
@@ -552,7 +552,7 @@ export default function Home() {
                     onClick={() => generate("presentation")}
                     disabled={isGenerating || (!sourceText && sources.length === 0)}
                     className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded-lg transition disabled:opacity-50 cursor-pointer"
-                    title="Generate Slides"
+                    title="Создать презентацию"
                   >
                     <Presentation className="w-4 h-4" />
                   </button>
@@ -561,7 +561,7 @@ export default function Home() {
 
             </div>
             <div className="text-center mt-2 text-[11px] text-neutral-500">
-               CortexNote uses advanced reasoning models. Verify important outputs.
+               Система использует ИИ. Обязательно проверяйте важные сгенерированные конспекты.
             </div>
           </div>
         )}
