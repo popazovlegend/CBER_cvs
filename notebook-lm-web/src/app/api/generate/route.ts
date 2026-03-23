@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { updateNotebook } from "@/lib/db";
 
 export async function POST(req: Request) {
     try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
         // Switched to Gemini 2.5 Pro model
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-        const { type, context } = await req.json();
+        const { type, context, notebookId } = await req.json();
 
         if (!context) {
             return NextResponse.json({ error: "Context is required" }, { status: 400 });
@@ -96,11 +97,25 @@ export async function POST(req: Request) {
                 if (!Array.isArray(parsedContent) && (parsedContent.script || parsedContent.slides)) {
                     parsedContent = parsedContent.script || parsedContent.slides || parsedContent;
                 }
+
+                // Auto-save to DB if notebookId is provided
+                if (notebookId) {
+                    const updateData = type === "audio_script"
+                        ? { audioScript: JSON.stringify(parsedContent) }
+                        : { slides: JSON.stringify(parsedContent) };
+                    updateNotebook(notebookId, updateData);
+                }
+
                 return NextResponse.json(parsedContent);
             } catch (e) {
                 console.error("JSON Parse Error", e);
                 return NextResponse.json({ error: "Failed to parse JSON" }, { status: 500 });
             }
+        }
+
+        // Auto-save summary to DB if notebookId is provided
+        if (notebookId) {
+            updateNotebook(notebookId, { summary: content });
         }
 
         return NextResponse.json({ summary: content });

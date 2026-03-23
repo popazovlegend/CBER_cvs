@@ -21,3 +21,19 @@ export interface Source {
     content: string;
     date: Date;
 }
+
+export interface Notebook {
+    id: string;
+    title: string;
+    subject: string;
+    author: string;
+    created_at: string;
+    updated_at: string;
+    rating: number;
+    views: number;
+    source_text: string;
+    sources: string;
+    summary: string;
+    audio_script: string;
+    slides: string;
+}
