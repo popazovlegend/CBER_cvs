@@ -60,7 +60,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
     sudo chown $USER:$USER "$INSTALL_DIR"
     
     echo "   Cloning repository..."
-    git clone https://github.com/YOUR_USERNAME/CBER_cvs.git "$INSTALL_DIR/repo"
+    git clone https://github.com/popazovlegend/CBER_cvs.git "$INSTALL_DIR/repo"
     cd "$INSTALL_DIR/repo/notebook-lm-web"
 else
     cd "$INSTALL_DIR/repo/notebook-lm-web"
@@ -124,7 +124,7 @@ echo ""
 echo "============================================"
 echo "✅ Deployment complete!"
 echo ""
-echo "   CortexNote:  http://YOUR_SERVER_IP:3000"
+echo "   CortexNote:  http://$(hostname -I | awk '{print $1}'):3000"
 echo "   OpenClaw:    http://localhost:18789 (internal)"
 echo ""
 echo "   Useful commands:"
