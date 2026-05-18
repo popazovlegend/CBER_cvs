@@ -80,7 +80,28 @@ export async function POST(req: Request) {
         if (jsonMode) {
             let parsedContent;
             try {
-                parsedContent = JSON.parse(content);
+                // Free models often wrap JSON in ```json ... ``` blocks
+                let cleanContent = content.trim();
+                
+                // Extract JSON from markdown code blocks
+                const jsonBlockMatch = cleanContent.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+                if (jsonBlockMatch) {
+                    cleanContent = jsonBlockMatch[1].trim();
+                }
+                
+                // Try to find array or object boundaries
+                if (!cleanContent.startsWith('[') && !cleanContent.startsWith('{')) {
+                    const arrayStart = cleanContent.indexOf('[');
+                    const objStart = cleanContent.indexOf('{');
+                    const start = arrayStart >= 0 && objStart >= 0 
+                        ? Math.min(arrayStart, objStart) 
+                        : Math.max(arrayStart, objStart);
+                    if (start >= 0) cleanContent = cleanContent.substring(start);
+                }
+
+                console.log("[Generate] Parsing JSON, first 200 chars:", cleanContent.substring(0, 200));
+                parsedContent = JSON.parse(cleanContent);
+                
                 // Handle formatting quirks if any
                 if (!Array.isArray(parsedContent) && (parsedContent.script || parsedContent.slides)) {
                     parsedContent = parsedContent.script || parsedContent.slides || parsedContent;
@@ -96,8 +117,10 @@ export async function POST(req: Request) {
 
                 return NextResponse.json(parsedContent);
             } catch (e) {
-                console.error("JSON Parse Error", e);
-                return NextResponse.json({ error: "Failed to parse JSON" }, { status: 500 });
+                console.error("JSON Parse Error:", e);
+                console.error("Raw content was:", content.substring(0, 500));
+                // Fallback: return as summary text instead of failing
+                return NextResponse.json({ summary: content });
             }
         }
 

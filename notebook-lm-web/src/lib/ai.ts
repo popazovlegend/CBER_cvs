@@ -48,13 +48,13 @@ export async function chatCompletion(options: ChatCompletionOptions): Promise<st
         temperature,
     };
 
-    if (jsonMode) {
-        body.response_format = { type: "json_object" };
-    }
+    // Note: free models don't support response_format, JSON is requested via prompt
 
     if (maxTokens) {
         body.max_tokens = maxTokens;
     }
+
+    console.log(`[OpenRouter] Calling model: ${OPENROUTER_MODEL}`);
 
     const response = await fetch(`${OPENROUTER_URL}/v1/chat/completions`, {
         method: "POST",
@@ -64,11 +64,20 @@ export async function chatCompletion(options: ChatCompletionOptions): Promise<st
 
     if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[OpenRouter] Error ${response.status}:`, errorText);
         throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    
+    if (data.error) {
+        console.error(`[OpenRouter] API returned error:`, data.error);
+        throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
+    }
+
+    const content = data.choices?.[0]?.message?.content || "";
+    console.log(`[OpenRouter] Response received, length: ${content.length}`);
+    return content;
 }
 
 /**
