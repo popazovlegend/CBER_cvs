@@ -11,7 +11,7 @@
 
 const OPENROUTER_URL = "https://openrouter.ai/api";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemma-2-9b-it:free";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 
 interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -88,7 +88,7 @@ export async function visionCompletion(prompt: string, imageBase64: string, mime
     const dataUrl = `data:${mimeType};base64,${imageBase64}`;
 
     // Use a vision-capable free model for image processing
-    const visionModel = process.env.OPENROUTER_VISION_MODEL || "google/gemma-2-9b-it:free";
+    const visionModel = process.env.OPENROUTER_VISION_MODEL || "openrouter/free";
 
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
