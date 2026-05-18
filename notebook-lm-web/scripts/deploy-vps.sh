@@ -1,23 +1,24 @@
 #!/bin/bash
 # ============================================
-# CortexNote + OpenClaw — VPS Deployment Script
+# CortexNote — VPS Deployment Script
+# Uses OpenRouter API (free, works worldwide)
 # Tested on Ubuntu 22.04 / 24.04
 # ============================================
 
 set -e
 
-echo "🚀 CortexNote + OpenClaw VPS Setup"
+echo "🚀 CortexNote VPS Setup"
 echo "===================================="
 
 # --- 1. System Update ---
 echo ""
-echo "📦 [1/6] Updating system packages..."
+echo "📦 [1/4] Updating system packages..."
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git build-essential
+sudo apt install -y curl git build-essential nginx certbot python3-certbot-nginx
 
 # --- 2. Install Node.js 24 ---
 echo ""
-echo "📦 [2/6] Installing Node.js 24..."
+echo "📦 [2/4] Installing Node.js 24..."
 if ! command -v node &> /dev/null || [[ $(node -v | cut -d'.' -f1 | tr -d 'v') -lt 22 ]]; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt install -y nodejs
@@ -25,34 +26,9 @@ fi
 echo "   Node.js: $(node -v)"
 echo "   npm: $(npm -v)"
 
-# --- 3. Install OpenClaw ---
+# --- 3. Clone & Setup CortexNote ---
 echo ""
-echo "📦 [3/6] Installing OpenClaw..."
-if ! command -v openclaw &> /dev/null; then
-    curl -fsSL https://openclaw.ai/install.sh | bash
-fi
-echo "   OpenClaw installed."
-
-# --- 4. Configure OpenClaw ---
-echo ""
-echo "⚙️  [4/6] Setting up OpenClaw..."
-echo ""
-echo "   You need to run the onboarding wizard to configure your AI provider."
-echo "   Run this command and follow the prompts:"
-echo ""
-echo "     openclaw onboard --install-daemon"
-echo ""
-echo "   This will set up your model provider (Anthropic/OpenAI/Google/etc.)"
-echo "   and start the Gateway daemon on port 18789."
-echo ""
-read -p "   Press Enter after you've completed onboarding..."
-
-# Verify gateway
-openclaw gateway status || echo "⚠️  Gateway not running. Start it with: openclaw gateway --port 18789"
-
-# --- 5. Clone & Setup CortexNote ---
-echo ""
-echo "📦 [5/6] Setting up CortexNote..."
+echo "📦 [3/4] Setting up CortexNote..."
 
 INSTALL_DIR="/opt/cortexnote"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -73,30 +49,33 @@ npm install
 
 # Create production .env
 if [ ! -f ".env.local" ]; then
-    echo "   Creating .env.local..."
+    echo ""
+    echo "⚙️  Setting up environment..."
+    echo ""
+    read -p "   Enter your OpenRouter API key (get free at https://openrouter.ai/keys): " OPENROUTER_KEY
     
-    # Generate random session secret
     SESSION_SECRET=$(openssl rand -hex 32)
     
     cat > .env.local << EOF
-# OpenClaw Gateway
-OPENCLAW_GATEWAY_URL=http://localhost:18789
-OPENCLAW_GATEWAY_TOKEN=
-OPENCLAW_MODEL=openclaw
+# OpenRouter API
+OPENROUTER_API_KEY=${OPENROUTER_KEY}
+OPENROUTER_MODEL=google/gemma-2-9b-it:free
+OPENROUTER_VISION_MODEL=google/gemma-2-9b-it:free
+SITE_URL=http://$(hostname -I | awk '{print $1}'):3000
 
 # Session Secret (auto-generated)
 SESSION_SECRET=${SESSION_SECRET}
 EOF
-    echo "   ✅ .env.local created with auto-generated SESSION_SECRET"
+    echo "   ✅ .env.local created"
 fi
 
 # Build for production
 echo "   Building for production..."
 npm run build
 
-# --- 6. Create systemd service ---
+# --- 4. Create systemd service ---
 echo ""
-echo "📦 [6/6] Setting up systemd service..."
+echo "📦 [4/4] Setting up systemd service..."
 
 sudo tee /etc/systemd/system/cortexnote.service > /dev/null << EOF
 [Unit]
@@ -120,19 +99,22 @@ sudo systemctl daemon-reload
 sudo systemctl enable cortexnote
 sudo systemctl start cortexnote
 
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
 echo ""
 echo "============================================"
 echo "✅ Deployment complete!"
 echo ""
-echo "   CortexNote:  http://$(hostname -I | awk '{print $1}'):3000"
-echo "   OpenClaw:    http://localhost:18789 (internal)"
+echo "   CortexNote: http://${SERVER_IP}:3000"
+echo "   AI Backend: OpenRouter (free tier)"
 echo ""
 echo "   Useful commands:"
 echo "     sudo systemctl status cortexnote"
 echo "     sudo systemctl restart cortexnote"
-echo "     openclaw gateway status"
-echo "     openclaw logs --follow"
+echo "     journalctl -u cortexnote -f"
 echo ""
-echo "   For HTTPS, set up Nginx reverse proxy + Certbot:"
-echo "     sudo apt install nginx certbot python3-certbot-nginx"
+echo "   For HTTPS with your domain:"
+echo "     1. Point your domain DNS to ${SERVER_IP}"
+echo "     2. Edit /etc/nginx/sites-available/cortexnote"
+echo "     3. sudo certbot --nginx -d your-domain.com"
 echo "============================================"

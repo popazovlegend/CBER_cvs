@@ -1,14 +1,17 @@
 /**
- * OpenClaw Gateway AI Client
+ * OpenRouter AI Client
  * 
- * Sends requests to OpenClaw's OpenAI-compatible API endpoint.
- * OpenClaw Gateway runs locally and proxies to configured model providers
- * (Anthropic Claude, OpenAI GPT, Google Gemini, etc.)
+ * Uses OpenRouter's OpenAI-compatible API endpoint.
+ * OpenRouter provides access to many models (Gemini, Claude, Llama, etc.)
+ * with free tiers available. Works from any country.
+ * 
+ * Free models: append ":free" to model name
+ * Docs: https://openrouter.ai/docs
  */
 
-const OPENCLAW_URL = process.env.OPENCLAW_GATEWAY_URL || "http://localhost:18789";
-const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "";
-const OPENCLAW_MODEL = process.env.OPENCLAW_MODEL || "openclaw";
+const OPENROUTER_URL = "https://openrouter.ai/api";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemma-2-9b-it:free";
 
 interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -23,21 +26,24 @@ interface ChatCompletionOptions {
 }
 
 /**
- * Send a chat completion request to OpenClaw Gateway
+ * Send a chat completion request to OpenRouter
  */
 export async function chatCompletion(options: ChatCompletionOptions): Promise<string> {
     const { messages, jsonMode = false, temperature = 0.7, maxTokens } = options;
 
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-    };
-
-    if (OPENCLAW_TOKEN) {
-        headers["Authorization"] = `Bearer ${OPENCLAW_TOKEN}`;
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not set. Get a free key at https://openrouter.ai/keys");
     }
 
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+        "X-Title": "CortexNote",
+    };
+
     const body: Record<string, any> = {
-        model: OPENCLAW_MODEL,
+        model: OPENROUTER_MODEL,
         messages,
         temperature,
     };
@@ -50,7 +56,7 @@ export async function chatCompletion(options: ChatCompletionOptions): Promise<st
         body.max_tokens = maxTokens;
     }
 
-    const response = await fetch(`${OPENCLAW_URL}/v1/chat/completions`, {
+    const response = await fetch(`${OPENROUTER_URL}/v1/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -58,7 +64,7 @@ export async function chatCompletion(options: ChatCompletionOptions): Promise<st
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OpenClaw API error (${response.status}): ${errorText}`);
+        throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
@@ -66,12 +72,24 @@ export async function chatCompletion(options: ChatCompletionOptions): Promise<st
 }
 
 /**
- * Send a vision request (image + text prompt) to OpenClaw Gateway
+ * Send a vision request (image + text prompt) via OpenRouter
+ * Uses a vision-capable model automatically
  */
 export async function visionCompletion(prompt: string, imageBase64: string, mimeType: string): Promise<string> {
     const dataUrl = `data:${mimeType};base64,${imageBase64}`;
 
-    return chatCompletion({
+    // Use a vision-capable free model for image processing
+    const visionModel = process.env.OPENROUTER_VISION_MODEL || "google/gemma-2-9b-it:free";
+
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+        "X-Title": "CortexNote",
+    };
+
+    const body = {
+        model: visionModel,
         messages: [
             {
                 role: "user",
@@ -82,20 +100,33 @@ export async function visionCompletion(prompt: string, imageBase64: string, mime
             },
         ],
         temperature: 0.3,
+    };
+
+    const response = await fetch(`${OPENROUTER_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
     });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter Vision API error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
 }
 
 /**
- * Check if OpenClaw Gateway is reachable
+ * Check if OpenRouter API is reachable
  */
 export async function checkGatewayHealth(): Promise<boolean> {
     try {
-        const headers: Record<string, string> = {};
-        if (OPENCLAW_TOKEN) {
-            headers["Authorization"] = `Bearer ${OPENCLAW_TOKEN}`;
-        }
-
-        const response = await fetch(`${OPENCLAW_URL}/v1/models`, { headers });
+        const response = await fetch(`${OPENROUTER_URL}/v1/models`, {
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            },
+        });
         return response.ok;
     } catch {
         return false;
