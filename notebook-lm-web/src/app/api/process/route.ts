@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { visionCompletion } from "@/lib/ai";
 
 // @ts-ignore
 const pdf = require("pdf-parse");
 
 export async function POST(req: Request) {
     try {
-        const apiKey = process.env.GOOGLE_API_KEY || process.env.OPENROUTER_API_KEY || "";
-        if (!apiKey) {
-            return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
-        }
-
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -32,7 +24,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: "PDF Parse Failed" }, { status: 500 });
             }
         } else if (file.type.startsWith("image/")) {
-            // Use Gemini Vision via Google SDK
+            // Use OpenClaw Gateway Vision via OpenAI-compatible API
             const base64Image = buffer.toString("base64");
 
             const prompt = `
@@ -46,17 +38,8 @@ export async function POST(req: Request) {
             5. PREFER RUSSIAN for descriptions.
             `;
 
-            const result = await model.generateContent([
-                prompt,
-                {
-                    inlineData: {
-                        data: base64Image,
-                        mimeType: file.type
-                    }
-                }
-            ]);
-
-            return NextResponse.json({ text: result.response.text() });
+            const text = await visionCompletion(prompt, base64Image, file.type);
+            return NextResponse.json({ text });
 
         } else {
             // Fallback for text files

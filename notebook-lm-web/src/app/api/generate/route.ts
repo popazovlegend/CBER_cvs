@@ -1,18 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { updateNotebook } from "@/lib/db";
+import { chatCompletion } from "@/lib/ai";
 
 export async function POST(req: Request) {
     try {
-        const apiKey = process.env.GOOGLE_API_KEY || process.env.OPENROUTER_API_KEY || "";
-        if (!apiKey) {
-            return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
-        }
-
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // Switched to Gemini 2.5 Pro model
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-
         const { type, context, notebookId } = await req.json();
 
         if (!context) {
@@ -20,10 +11,10 @@ export async function POST(req: Request) {
         }
 
         let prompt = "";
-        let jsonFormat = false;
+        let jsonMode = false;
 
         if (type === "audio_script") {
-            jsonFormat = true;
+            jsonMode = true;
             prompt = `
             You are an expert educational podcast producer. Create a detailed dialogue script in RUSSIAN (Русский язык) between two hosts (Host 1 and Host 2) discussing the provided content.
             
@@ -43,7 +34,7 @@ export async function POST(req: Request) {
             ${context}
             `;
         } else if (type === "presentation") {
-            jsonFormat = true;
+            jsonMode = true;
             prompt = `
             You are an expert presentation designer. Create a slide deck summary in RUSSIAN (Русский язык) of the provided content.
             
@@ -80,16 +71,13 @@ export async function POST(req: Request) {
             `;
         }
 
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: jsonFormat ? "application/json" : "text/plain",
-            }
+        const content = await chatCompletion({
+            messages: [{ role: "user", content: prompt }],
+            jsonMode,
+            temperature: 0.7,
         });
 
-        const content = result.response.text();
-
-        if (jsonFormat) {
+        if (jsonMode) {
             let parsedContent;
             try {
                 parsedContent = JSON.parse(content);
