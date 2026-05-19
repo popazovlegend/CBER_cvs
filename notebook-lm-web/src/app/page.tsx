@@ -195,8 +195,11 @@ export default function Home() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `Ошибка сервера: ${res.status}`);
+      }
 
       if (data.text) {
         const newSource: Source = {
@@ -209,10 +212,12 @@ export default function Home() {
         const updatedSources = [...sources, newSource];
         setSources(updatedSources);
         saveToDb({ sources: JSON.stringify(updatedSources) });
+      } else {
+        throw new Error("Сервер не вернул текст из файла");
       }
     } catch (error: any) {
-      console.error(error);
-      alert("Ошибка обработки файла");
+      console.error("File upload error:", error);
+      alert(`Ошибка обработки файла: ${error.message}`);
     } finally {
       setIsProcessing(false);
       e.target.value = "";
