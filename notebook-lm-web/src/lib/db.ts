@@ -137,6 +137,11 @@ export function getAllNotebooks(query?: string, subject?: string, userId?: strin
     sql += " AND 1=0";
   }
 
+  if (isExplore) {
+    // In Explore mode, only show notebooks that actually have content (summary)
+    sql += " AND summary != '' AND summary IS NOT NULL";
+  }
+
   sql += " ORDER BY created_at DESC";
 
   const stmt = db.prepare(sql);

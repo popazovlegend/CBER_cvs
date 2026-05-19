@@ -54,17 +54,20 @@ export async function POST(req: Request) {
         } else {
             // Summary
             prompt = `
-            You are an expert academic assistant. Create a detailed note/summary (конспект) in RUSSIAN (Русский язык) of the provided text.
+            You are an expert academic assistant. Create a highly detailed, beautifully structured note/summary (конспект) in RUSSIAN (Русский язык) of the provided text.
             
             INSTRUCTIONS:
             1. Language: RUSSIAN ONLY.
-            2. Structure the notes with clear headers and bullet points.
-            3. Capture ALL details, numbers, and facts from the text.
-            4. Do not miss any information.
-            5. FORMATTING: Use **Bold** for key terms.
-            6. MATH/FORMULAS: Use LaTeX format for ALL formulas and equations. 
+            2. Structure the notes logically with clear Markdown headers (##, ###), bullet points, and paragraphs.
+            3. Capture ALL important details, numbers, and facts from the text. Do not miss any crucial information.
+            4. FORMATTING: Use **Bold** for key terms and definitions. Use blockquotes (>) for important thoughts or rules.
+            5. MATH/FORMULAS: Use LaTeX format for ALL formulas and equations. 
                - Inline math: $ ... $ (e.g., $ E = mc^2 $)
                - Block math: $$ ... $$
+            6. VISUALS / IMAGES: You MUST generate relevant and beautiful contextual images for the summary to make it engaging.
+               - To add an image, use this exact Markdown syntax: ![Image description](https://image.pollinations.ai/prompt/{english_visual_description}?width=800&height=400&nologo=true)
+               - Replace {english_visual_description} with a highly detailed, descriptive prompt IN ENGLISH for an AI image generator (e.g., highly_detailed_illustration_of_a_black_hole_in_space). Use underscores (_) instead of spaces.
+               - Insert at least 1-3 images in the summary at relevant sections to visually illustrate the concepts being discussed.
 
             Text to summarize:
             ${context}

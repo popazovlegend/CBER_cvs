@@ -433,7 +433,7 @@ export default function Home() {
                </div>
                
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                 {notebooks.map(n => (
+                 {filteredNotebooks.map(n => (
                    <div key={n.id} onClick={() => loadNotebook(n)} className="p-5 rounded-2xl border border-neutral-800 bg-[#1e1e1e] hover:bg-neutral-800 cursor-pointer shadow-sm hover:shadow-md transition-all group flex flex-col">
                      <div className="flex items-start justify-between mb-3">
                        <span className="text-xs px-2 py-1 bg-white/5 text-neutral-300 rounded-md border border-white/5">{n.subject || "Общее"}</span>
@@ -507,7 +507,7 @@ export default function Home() {
                            className="w-full min-h-[50vh] bg-[#1a1a1a] text-neutral-200 placeholder:text-neutral-600 text-[15px] resize-none outline-none leading-relaxed border border-neutral-700 rounded-lg p-4 focus:border-neutral-500 transition-colors shadow-inner"
                          />
                        ) : (
-                         <div className="prose prose-invert prose-neutral prose-p:leading-relaxed prose-pre:bg-neutral-900 prose-pre:border prose-pre:border-neutral-800 max-w-none">
+                         <div className="prose prose-invert prose-neutral prose-p:leading-relaxed prose-pre:bg-neutral-900 prose-pre:border prose-pre:border-neutral-800 prose-img:rounded-2xl prose-img:shadow-2xl prose-img:w-full prose-img:object-cover prose-img:border prose-img:border-neutral-800 max-w-none">
                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{summary}</ReactMarkdown>
                          </div>
                        )}
