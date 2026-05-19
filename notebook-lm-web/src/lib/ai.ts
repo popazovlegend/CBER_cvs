@@ -102,10 +102,10 @@ export async function visionCompletion(prompt: string, imageBase64: string, mime
     // Vision-capable models to try (in order of preference)
     const configuredModel = process.env.OPENROUTER_VISION_MODEL || "";
     const fallbackModels = [
-        "google/gemini-2.0-flash-exp:free",
-        "google/gemma-3-4b-it:free",
-        "meta-llama/llama-4-scout:free",
-        "qwen/qwen2.5-vl-72b-instruct:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "google/gemma-4-31b-it:free",
+        "nvidia/nemotron-nano-12b-v2-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     ];
 
     // Build the list: configured model first, then fallbacks
