@@ -89,7 +89,7 @@ export async function POST(req: Request) {
                     cleanContent = jsonBlockMatch[1].trim();
                 }
                 
-                // Try to find array or object boundaries
+                // Try to find array or object boundaries if markdown extraction didn't trigger
                 if (!cleanContent.startsWith('[') && !cleanContent.startsWith('{')) {
                     const arrayStart = cleanContent.indexOf('[');
                     const objStart = cleanContent.indexOf('{');
@@ -98,13 +98,31 @@ export async function POST(req: Request) {
                         : Math.max(arrayStart, objStart);
                     if (start >= 0) cleanContent = cleanContent.substring(start);
                 }
-
-                console.log("[Generate] Parsing JSON, first 200 chars:", cleanContent.substring(0, 200));
+                
                 parsedContent = JSON.parse(cleanContent);
                 
                 // Handle formatting quirks if any
-                if (!Array.isArray(parsedContent) && (parsedContent.script || parsedContent.slides)) {
-                    parsedContent = parsedContent.script || parsedContent.slides || parsedContent;
+                if (!Array.isArray(parsedContent)) {
+                    if (parsedContent.slides) {
+                        parsedContent = parsedContent.slides;
+                    } else if (parsedContent.script) {
+                        parsedContent = parsedContent.script;
+                    } else if (parsedContent.title || parsedContent.text || parsedContent.speaker) {
+                        // Wrap single object in array
+                        parsedContent = [parsedContent];
+                    }
+                }
+
+                // Ensure presentation bullets is an array (to prevent crashes in the viewer)
+                if (type === "presentation" && Array.isArray(parsedContent)) {
+                    parsedContent = parsedContent.map((slide: any) => ({
+                        ...slide,
+                        bullets: Array.isArray(slide.bullets) 
+                            ? slide.bullets 
+                            : typeof slide.bullets === 'string' 
+                                ? [slide.bullets] 
+                                : []
+                    }));
                 }
 
                 // Auto-save to DB if notebookId is provided

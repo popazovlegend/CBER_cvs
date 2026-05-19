@@ -255,10 +255,18 @@ export default function Home() {
       }
 
       if (type === "audio_script") {
+        if (!Array.isArray(data)) {
+          alert("Не удалось сгенерировать аудио в нужном формате.");
+          return;
+        }
         setScript(data);
         setActiveOutputTab("audio");
         saveToDb({ audioScript: JSON.stringify(data) });
       } else if (type === "presentation") {
+        if (!Array.isArray(data)) {
+          alert("Не удалось сгенерировать презентацию в нужном формате.");
+          return;
+        }
         setSlides(data);
         setActiveOutputTab("slides");
         saveToDb({ slides: JSON.stringify(data) });
