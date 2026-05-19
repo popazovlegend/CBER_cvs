@@ -1,17 +1,12 @@
 /**
- * OpenRouter AI Client
+ * Google AI Studio Client
  * 
- * Uses OpenRouter's OpenAI-compatible API endpoint.
- * OpenRouter provides access to many models (Gemini, Claude, Llama, etc.)
- * with free tiers available. Works from any country.
- * 
- * Free models: append ":free" to model name
- * Docs: https://openrouter.ai/docs
+ * Uses official @google/genai SDK.
  */
+import { GoogleGenAI } from "@google/genai";
 
-const OPENROUTER_URL = "https://openrouter.ai/api";
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -25,173 +20,100 @@ interface ChatCompletionOptions {
     maxTokens?: number;
 }
 
+function getAiClient() {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not set. Please set it in your .env.local file.");
+    }
+    return new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+}
+
 /**
- * Send a chat completion request to OpenRouter
+ * Send a chat completion request to Google AI Studio
  */
 export async function chatCompletion(options: ChatCompletionOptions): Promise<string> {
     const { messages, jsonMode = false, temperature = 0.7, maxTokens } = options;
+    const ai = getAiClient();
 
-    if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not set. Get a free key at https://openrouter.ai/keys");
-    }
+    // The app mostly uses a single user message. Let's extract the text prompt.
+    // If there are multiple messages, we'd need to map them to parts, but we'll map all text for simplicity.
+    const combinedPrompt = messages.map(m => {
+        if (typeof m.content === 'string') return m.content;
+        // In case it's an array of parts
+        return m.content.map(part => part.text || "").join("\n");
+    }).join("\n\n");
 
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
-        "X-Title": "CortexNote",
-    };
-
-    const body: Record<string, any> = {
-        model: OPENROUTER_MODEL,
-        messages,
+    const config: any = {
         temperature,
     };
 
-    // Note: free models don't support response_format, JSON is requested via prompt
-
+    if (jsonMode) {
+        config.responseMimeType = "application/json";
+    }
     if (maxTokens) {
-        body.max_tokens = maxTokens;
+        config.maxOutputTokens = maxTokens;
     }
 
-    console.log(`[OpenRouter] Calling model: ${OPENROUTER_MODEL}`);
+    console.log(`[Google AI Studio] Calling model: ${GEMINI_MODEL}`);
 
-    const response = await fetch(`${OPENROUTER_URL}/v1/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
+    const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: combinedPrompt,
+        config
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[OpenRouter] Error ${response.status}:`, errorText);
-        throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.error) {
-        console.error(`[OpenRouter] API returned error:`, data.error);
-        throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
-    }
-
-    const content = data.choices?.[0]?.message?.content || "";
-    console.log(`[OpenRouter] Response received, length: ${content.length}`);
+    const content = response.text || "";
+    console.log(`[Google AI Studio] Response received, length: ${content.length}`);
     return content;
 }
 
 /**
- * Send a vision request (image + text prompt) via OpenRouter
- * Uses a vision-capable model with automatic fallback
+ * Send a vision request (image + text prompt) via Google AI Studio
  */
 export async function visionCompletion(prompt: string, imageBase64: string, mimeType: string): Promise<string> {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not set. Get a free key at https://openrouter.ai/keys");
-    }
+    const ai = getAiClient();
 
-    // Compress large images by reducing base64 if too big (>4MB base64 ≈ 3MB image)
-    const MAX_BASE64_SIZE = 4 * 1024 * 1024;
-    let finalBase64 = imageBase64;
-    if (imageBase64.length > MAX_BASE64_SIZE) {
-        console.log(`[OpenRouter Vision] Image too large (${Math.round(imageBase64.length / 1024)}KB base64), will try anyway...`);
-        // OpenRouter should handle it, but log a warning
-    }
+    console.log(`[Google AI Studio Vision] Using model: ${GEMINI_MODEL}, image size: ${Math.round(imageBase64.length / 1024)}KB base64`);
 
-    const dataUrl = `data:${mimeType};base64,${finalBase64}`;
-
-    // Vision-capable models to try (in order of preference)
-    const configuredModel = process.env.OPENROUTER_VISION_MODEL || "";
-    const fallbackModels = [
-        "google/gemma-4-26b-a4b-it:free",
-        "google/gemma-4-31b-it:free",
-        "nvidia/nemotron-nano-12b-v2-vl:free",
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    ];
-
-    // Build the list: configured model first, then fallbacks
-    const modelsToTry = configuredModel 
-        ? [configuredModel, ...fallbackModels.filter(m => m !== configuredModel)]
-        : fallbackModels;
-
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
-        "X-Title": "CortexNote",
-    };
-
-    let lastError = "";
-
-    for (const visionModel of modelsToTry) {
-        console.log(`[OpenRouter Vision] Trying model: ${visionModel}, image size: ${Math.round(imageBase64.length / 1024)}KB base64`);
-
-        const body = {
-            model: visionModel,
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        { type: "text", text: prompt },
-                        { type: "image_url", image_url: { url: dataUrl } },
-                    ],
-                },
-            ],
+    const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [
+            {
+                role: 'user',
+                parts: [
+                    { text: prompt },
+                    { inlineData: { data: imageBase64, mimeType } }
+                ]
+            }
+        ],
+        config: {
             temperature: 0.3,
-            max_tokens: 4096,
-        };
-
-        try {
-            const response = await fetch(`${OPENROUTER_URL}/v1/chat/completions`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(body),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`[OpenRouter Vision] Error ${response.status} with ${visionModel}:`, errorText);
-                lastError = `${visionModel}: ${response.status} - ${errorText}`;
-                continue; // Try next model
-            }
-
-            const data = await response.json();
-
-            if (data.error) {
-                console.error(`[OpenRouter Vision] API error with ${visionModel}:`, data.error);
-                lastError = `${visionModel}: ${data.error.message || JSON.stringify(data.error)}`;
-                continue; // Try next model
-            }
-
-            const content = data.choices?.[0]?.message?.content || "";
-            console.log(`[OpenRouter Vision] ✅ Success with ${visionModel}, response length: ${content.length}`);
-
-            if (!content) {
-                lastError = `${visionModel}: empty response`;
-                continue; // Try next model
-            }
-
-            return content;
-        } catch (e: any) {
-            console.error(`[OpenRouter Vision] Network error with ${visionModel}:`, e.message);
-            lastError = `${visionModel}: ${e.message}`;
-            continue; // Try next model
+            maxOutputTokens: 4096,
         }
+    });
+
+    const content = response.text || "";
+    console.log(`[Google AI Studio Vision] ✅ Success, response length: ${content.length}`);
+
+    if (!content) {
+        throw new Error("Google AI Studio Vision returned empty response.");
     }
 
-    throw new Error(`Все vision-модели недоступны. Последняя ошибка: ${lastError}`);
+    return content;
 }
 
 /**
- * Check if OpenRouter API is reachable
+ * Check if Google API is reachable
  */
 export async function checkGatewayHealth(): Promise<boolean> {
     try {
-        const response = await fetch(`${OPENROUTER_URL}/v1/models`, {
-            headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            },
+        const ai = getAiClient();
+        // A simple lightweight call to check if the API is working
+        await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: "hi",
+            config: { maxOutputTokens: 1 }
         });
-        return response.ok;
+        return true;
     } catch {
         return false;
     }

@@ -52,15 +52,14 @@ if [ ! -f ".env.local" ]; then
     echo ""
     echo "⚙️  Setting up environment..."
     echo ""
-    read -p "   Enter your OpenRouter API key (get free at https://openrouter.ai/keys): " OPENROUTER_KEY
+    read -p "   Enter your Google Gemini API key (get free at https://aistudio.google.com/app/apikey): " GEMINI_KEY
     
     SESSION_SECRET=$(openssl rand -hex 32)
     
     cat > .env.local << EOF
-# OpenRouter API
-OPENROUTER_API_KEY=${OPENROUTER_KEY}
-OPENROUTER_MODEL=google/gemma-2-9b-it:free
-OPENROUTER_VISION_MODEL=google/gemma-2-9b-it:free
+# Google AI Studio API
+GEMINI_API_KEY=${GEMINI_KEY}
+GEMINI_MODEL=gemini-2.5-flash
 SITE_URL=http://$(hostname -I | awk '{print $1}'):3000
 
 # Session Secret (auto-generated)
